@@ -2,38 +2,36 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
+import lt_model
 from models.feedforward import SimpleFeedforward
 from datasets.mnist import mnist_trainloader, mnist_testloader
 
-EPOCHS = 50
 LEARNING_RATE = 1.2e-3
 
-def train(output):
+def train_feedforward_mnist():
+    
     model = SimpleFeedforward()
-    loader = mnist_trainloader()
+    train_loader = mnist_trainloader()
+    test_loader = mnist_testloader()
 
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
-    for epoch in range(50):
-        running_loss = 0.0
-        for i, data in enumerate(loader):
-            inputs, labels = data
+    def callback(epoch, model, running_loss):
+        print(f'[{epoch + 1}] loss: {running_loss / 1000:.3f}')
+        lt_model.test_classification(model, test_loader)
+        torch.save(model.state_dict(), f"model/ff_mnist_{epoch + 1}.pt")
 
-            optimizer.zero_grad()
+    model = lt_model.train(model, train_loader, criterion, optimizer, 10, callback) 
+    #model.load_state_dict(torch.load("model/ff_mnist_10.pt"))
 
-            outputs = model(inputs)
-            loss = criterion(outputs, labels)
-            loss.backward()
-            optimizer.step()
-
-            running_loss += loss.item()
-            if i % 2000 == 1999:
-                print(f'[{epoch + 1}, {i + 1:5d}] loss: {running_loss / 2000:.3f}')
-                running_loss = 0.0
-    torch.save(model.state_dict(), Path(output))
-
-
+    for prune_amt in [0.0, 0.25, 0.5, 0.75, 0.9, 0.95, 0.99]:
+        print(f"Pruning {prune_amt}")
+        lt_model.prune_model(model, prune_amt, exclude_modules=['fc3'])
+        # In the paper the final layer is pruned only half as much
+        lt_model.prune_model(model, prune_amt/2, include_modules=['fc3'])
+        lt_model.test_classification(model, test_loader)
+        torch.save(model.state_dict(), f"model/ff_mnist_prune_{prune_amt}.pt")
 
 if __name__ == '__main__':
-    train("./foo")
+    train_feedforward_mnist()
