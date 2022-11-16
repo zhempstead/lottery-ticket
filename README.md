@@ -4,6 +4,7 @@ Exploring lottery ticket hypothesis
 # Setup
 ```
 mkdir model
+mkdir plots
 python3 -m venv venv
 source venv/bin/activate
 python -m pip install -r requirements.txt
