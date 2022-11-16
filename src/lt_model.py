@@ -78,3 +78,5 @@ def prune_model(model, prune_amount, glob=False, include_modules=None, exclude_m
     else:
         for module in modules:
             prune.l1_unstructured(module, name="weight", amount=prune_amount)
+    for module in modules:
+        prune.remove(module, 'weight')
