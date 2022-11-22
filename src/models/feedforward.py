@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -25,3 +26,30 @@ class SimpleFeedforward(nn.Module):
         x = self.fc3(x)
         probs = F.softmax(x, dim=1)
         return probs
+
+    
+    def correlate_nodes(self, f):
+        '''
+        Assign each hidden node a random multiplier based on the f factor:
+        - 50% chance the multiplier is drawn from a uniform distribution between 1 and f
+        - 50% chance the multiplier is drawn from a uniform distribution between 1/f and 1
+
+        Multiply all weights going into/out of that node by the multiplier
+        '''
+        with torch.no_grad():
+            params = dict(self.named_parameters())
+            new_fc1, new_fc2 = correlate_layer(params['fc1.weight'], params['fc2.weight'], f)
+            params['fc1.weight'].copy_(new_fc1)
+            params['fc2.weight'].copy_(new_fc2)
+            new_fc2, new_fc3 = correlate_layer(params['fc2.weight'], params['fc3.weight'], f)
+            params['fc2.weight'].copy_(new_fc2)
+            params['fc3.weight'].copy_(new_fc3)
+
+def correlate_layer(input_layer, output_layer, f):
+    node_count = input_layer.shape[0]
+    node_weights = np.random.uniform(1.0, f, node_count)
+    invert = np.random.choice(a=[True, False], size=node_count)
+    node_weights = np.where(invert, 1 / node_weights, node_weights)
+    new_input = np.multiply(node_weights, input_layer.T).T
+    new_output = np.multiply(node_weights, output_layer)
+    return new_input, new_output
