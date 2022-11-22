@@ -24,7 +24,7 @@ def train_correlated_mnist():
     print("Baseline:")
     bmodel = copy.deepcopy(model)
     optimizer = optim.Adam(bmodel.parameters(), lr=LEARNING_RATE)
-    bmodel = lt_model.train(bmodel, train_loader, criterion, optimizer, 1, callback)
+    bmodel = lt_model.train(bmodel, train_loader, criterion, optimizer, 1, callback, mod=4)
     lt_model.test_classification(bmodel, test_loader)
 
     for correlate_factor in [1.0, 1.1, 1.25, 1.5, 2.0, 2.5, 3.0]:

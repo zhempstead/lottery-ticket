@@ -11,12 +11,13 @@ def train(model, train_loader, criterion, optimizer, num_epochs, callback, mod=N
     If mod is set, only batches with index % mod == 0 will run (i.e. if you set mod to 4, it will
     only use a quarter of the batches)
     '''
-    callback(-1, model, None)
+    callback(-1, model, float('inf'))
 
     for epoch in range(num_epochs):
         running_loss = 0.0
         for batch, data in enumerate(train_loader):
             if mod is not None and batch % mod > 0:
+                continue
             inputs, labels = data
 
             optimizer.zero_grad()
