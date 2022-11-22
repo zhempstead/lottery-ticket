@@ -32,7 +32,7 @@ def train_correlated_mnist():
         cmodel = copy.deepcopy(model)
         cmodel.correlate_nodes(correlate_factor) 
         optimizer = optim.Adam(cmodel.parameters(), lr=LEARNING_RATE)
-        cmodel = lt_model.train(cmodel, train_loader, criterion, optimizer, 1, callback)
+        cmodel = lt_model.train(cmodel, train_loader, criterion, optimizer, 1, callback, mod=4)
         lt_model.test_classification(cmodel, test_loader)
 
 if __name__ == '__main__':
