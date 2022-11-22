@@ -1,18 +1,22 @@
 import torch
 import torch.nn.utils.prune as prune
 
-def train(model, train_loader, criterion, optimizer, num_epochs, callback):
+def train(model, train_loader, criterion, optimizer, num_epochs, callback, mod=None):
     '''
     Train a model for the specified number of epochs.
 
     callback should be a function of (epoch, model, running_loss) -> None. It gets called once
     before training starts, and at the end of each epoch.
+
+    If mod is set, only batches with index % mod == 0 will run (i.e. if you set mod to 4, it will
+    only use a quarter of the batches)
     '''
-    callback(-1, model, -1)
+    callback(-1, model, None)
 
     for epoch in range(num_epochs):
         running_loss = 0.0
         for batch, data in enumerate(train_loader):
+            if mod is not None and batch % mod > 0:
             inputs, labels = data
 
             optimizer.zero_grad()
@@ -23,7 +27,6 @@ def train(model, train_loader, criterion, optimizer, num_epochs, callback):
             optimizer.step()
 
             running_loss += loss.item()
-        num_batches = batch + 1
 
         callback(epoch, model, running_loss)
     return model
@@ -80,3 +83,4 @@ def prune_model(model, prune_amount, glob=False, include_modules=None, exclude_m
             prune.l1_unstructured(module, name="weight", amount=prune_amount)
     for module in modules:
         prune.remove(module, 'weight')
+
