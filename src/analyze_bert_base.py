@@ -4,12 +4,35 @@ import numpy as np
 import torch
 
 
-def analyze_bert_layer(model, layer_num):
-    pass
+def analyze_bert_ffn(model, layer_num):
+    layer = model.encoder.layer[layer_num]
+    intermediate = layer.intermediate.dense.weight.data.numpy() # hidden
+    output = layer.output.dense.weight.data.numpy()
+    
+    outgoing_df, incoming_df = \
+        basic_weight_statistics(
+            model.encoder.layer[0].attention.self.query.weight.detach().numpy())
+    #query, key, value weights
 
+def analyze_bert_self_attn(model, layer_num):
+    layer = model.encoder.layer[layer_num]
+    query_weights = layer.attention.self.query.weight.data.numpy()
+    key_weights = layer.attention.self.key.weight.data.numpy()
+    value_weights = layer.attention.self.value.weight.data.numpy()
+    attn_output = layer. attention.output.dense.weight.data.numpy()
     
     
-def basic_weight_statistics(param_array):
+    q_out_df, q_in_df = attn_weight_statistics(query_weights)
+    k_out_df, k_in_df = attn_weight_statistics(key_weights)
+    v_out_df, v_in_df = attn_weight_statistics(value_weights)
+    ffn_out_df, ffn_in_df = attn_weight_statistics(attn_output)
+
+    q_dead_out_nodes = sum(q_out_df['nonzero'] == 0)
+    q_dead_in_nodes = sum(q_in_df['nonzero'] == 0)
+    
+    
+    
+def attn_weight_statistics(param_array):
     
     # number of non-zero weights per input dimension
     nonzero_outgoing = (param_array != 0).sum(axis=0)
