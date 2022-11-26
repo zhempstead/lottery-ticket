@@ -16,7 +16,45 @@ def analyze_bert_ffn(model, layer_num):
 
 
 
-def compute_ffn_weight_statistics:
+def compute_ffn_weight_statistics(inter_params, output_params):
+    
+    hidden_nz_input = (inter_params != 0).sum(axis=1)
+    hidden_nz_output = (output_params != 0).sum(axis=0)
+
+    hidden_positive_input = (inter_params > 0).sum(axis=1) / hidden_nz_input
+    hidden_positive_output = (output_params > 0).sum(axis=0) / hidden_nz_output
+
+    hidden_nz_avg_input = (inter_params.sum(axis=1)) / hidden_nz_input
+    hidden_nz_avg_output = (output_params.sum(axis=0)) / hidden_nz_output
+
+    hidden_nz_abs_input = (np.abs(inter_params).sum(axis=1)) / hidden_nz_input
+    hidden_nz_abs_output = (np.abs(output_params).sum(axis=0)) / hidden_nz_output
+
+    l1 = pd.DataFrame({
+        "nz_cnt_input": l1_nonzero_input, "nz_cnt_output": l1_nonzero_output,
+        "nz_pos_input": l1_positive_input, "nz_pos_output": l1_positive_output,
+        "nz_avg_input": l1_nz_avg_input, "nz_avg_output": l1_nz_avg_output,
+        "nz_abs_input": l1_nz_abs_input, "nz_abs_output": l1_nz_abs_output,
+    })
+    l2 = pd.DataFrame({
+        "nz_cnt_input": l2_nonzero_input, "nz_cnt_output": l2_nonzero_output,
+        "nz_pos_input": l2_positive_input, "nz_pos_output": l2_positive_output,
+        "nz_avg_input": l2_nz_avg_input, "nz_avg_output": l2_nz_avg_output,
+        "nz_abs_input": l2_nz_abs_input, "nz_abs_output": l2_nz_abs_output,
+    })
+
+    scatterplot(l1, 'nz_cnt_input', 'nz_cnt_output', "Layer 1: nonzero input vs output weights", "plots/scatter_l1_nnz.jpg")
+    scatterplot(l2, 'nz_cnt_input', 'nz_cnt_output', "Layer 2: nonzero input vs output weights", "plots/scatter_l2_nnz.jpg")
+    scatterplot(l1, 'nz_abs_input', 'nz_abs_output', "Layer 1: average absolute value of input vs output weights", "plots/scatter_l1_nz_abs.jpg")
+    scatterplot(l2, 'nz_avg_input', 'nz_avg_output', "Layer 2: average value of input vs output weights", "plots/scatter_l2_nz_avg.jpg")
+    scatterplot(l1, 'nz_avg_input', 'nz_avg_output', "Layer 1: average value of input vs output weights", "plots/scatter_l1_nz_avg.jpg")
+    scatterplot(l2, 'nz_abs_input', 'nz_abs_output', "Layer 2: average absolute value of input vs output weights", "plots/scatter_l2_nz_abs.jpg")
+    scatterplot(l1, 'nz_pos_input', 'nz_pos_output', "Layer 1: fraction of nonzero weights > 0 for input vs output", "plots/scatter_l1_pos.jpg")
+    scatterplot(l2, 'nz_pos_input', 'nz_pos_output', "Layer 2: fraction of nonzero weights > 0 for input vs output", "plots/scatter_l2_pos.jpg")
+
+
+
+
 
 def analyze_bert_self_attn(model, layer_num):
     layer = model.encoder.layer[layer_num]
@@ -33,8 +71,22 @@ def analyze_bert_self_attn(model, layer_num):
 
     q_dead_out_nodes = sum(q_out_df['nonzero'] == 0)
     q_dead_in_nodes = sum(q_in_df['nonzero'] == 0)
-    #TODO fill out the rest of this functio for key, value, ffn
-    
+    k_dead_out_nodes = sum(k_out_df['nonzero'] == 0)
+    k_dead_in_nodes = sum(k_in_df['nonzero'] == 0)
+    v_dead_out_nodes = sum(v_out_df['nonzero'] == 0)
+    v_dead_in_nodes = sum(v_in_df['nonzero'] == 0)
+    ffn_dead_out_nodes = sum(ffn_out_df['nonzero'] == 0)
+    ffn_dead_in_nodes = sum(ffn_in_df['nonzero'] == 0)
+
+    dead_node_df = pd.DataFrame({
+        "q_weights": [q_dead_out_nodes, q_dead_in_nodes],
+        "k_weights": [k_dead_out_nodes, k_dead_in_nodes],
+        "v_weights": [v_dead_out_nodes, v_dead_in_nodes],
+        "ffn_weights": [ffn_dead_out_nodes, ffn_dead_in_nodes]
+    }, index=["output", "input"])
+
+    return dead_node_df
+
     
     
 def compute_basic_weight_stats(param_array):
