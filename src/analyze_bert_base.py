@@ -9,14 +9,25 @@ def analyze_bert_ffn(model, layer_num):
     intermediate = layer.intermediate.dense.weight.data.numpy() # hidden
     output = layer.output.dense.weight.data.numpy()
     
-    outgoing_df, incoming_df = \
-        basic_weight_statistics(
-            model.encoder.layer[0].attention.self.query.weight.detach().numpy())
-    #query, key, value weights
+    hidden_df = compute_ffn_weight_stats(intermediate, output)
+
+    nz_cnt_corr = np.corrcoef(hidden_df['nz_cnt_input'],
+                              hidden_df['nz_cnt_output'])[0, 1]
+    nz_pos_corr = np.corrcoef(hidden_df['nz_pos_input'],
+                              hidden_df['nz_pos_output'])[0, 1]
+    nz_avg_corr = np.corrcoef(hidden_df['nz_avg_input'],
+                              hidden_df['nz_avg_output'])[0, 1]
+    nz_abs_corr = np.corrcoef(hidden_df['nz_abs_input'],
+                              hidden_df['nz_abs_output'])[0, 1]
+    c_str = f"""    nz_cnt_corr: {nz_cnt_corr:.3f} 
+    nz_pos_corr: {nz_pos_corr:.3f}
+    nz_avg_corr: {nz_avg_corr:.3f}
+    nz_abs_corr: {nz_abs_corr:.3f}
+    """
+    print(c_str)
 
 
-
-def compute_ffn_weight_statistics(inter_params, output_params):
+def compute_ffn_weight_stats(inter_params, output_params):
     
     hidden_nz_input = (inter_params != 0).sum(axis=1)
     hidden_nz_output = (output_params != 0).sum(axis=0)
@@ -30,30 +41,14 @@ def compute_ffn_weight_statistics(inter_params, output_params):
     hidden_nz_abs_input = (np.abs(inter_params).sum(axis=1)) / hidden_nz_input
     hidden_nz_abs_output = (np.abs(output_params).sum(axis=0)) / hidden_nz_output
 
-    l1 = pd.DataFrame({
-        "nz_cnt_input": l1_nonzero_input, "nz_cnt_output": l1_nonzero_output,
-        "nz_pos_input": l1_positive_input, "nz_pos_output": l1_positive_output,
-        "nz_avg_input": l1_nz_avg_input, "nz_avg_output": l1_nz_avg_output,
-        "nz_abs_input": l1_nz_abs_input, "nz_abs_output": l1_nz_abs_output,
-    })
-    l2 = pd.DataFrame({
-        "nz_cnt_input": l2_nonzero_input, "nz_cnt_output": l2_nonzero_output,
-        "nz_pos_input": l2_positive_input, "nz_pos_output": l2_positive_output,
-        "nz_avg_input": l2_nz_avg_input, "nz_avg_output": l2_nz_avg_output,
-        "nz_abs_input": l2_nz_abs_input, "nz_abs_output": l2_nz_abs_output,
-    })
+    hidden_df = pd.DataFrame({
+        "nz_cnt_input": hidden_nz_input, "nz_cnt_output": hidden_nz_output,
+        "nz_pos_input": hidden_positive_input, "nz_pos_output": hidden_positive_output,
+        "nz_avg_input": hidden_nz_avg_input, "nz_avg_output": hidden_nz_avg_output,
+        "nz_abs_input": hidden_nz_abs_input, "nz_abs_output": hidden_nz_abs_output,
+        })
 
-    scatterplot(l1, 'nz_cnt_input', 'nz_cnt_output', "Layer 1: nonzero input vs output weights", "plots/scatter_l1_nnz.jpg")
-    scatterplot(l2, 'nz_cnt_input', 'nz_cnt_output', "Layer 2: nonzero input vs output weights", "plots/scatter_l2_nnz.jpg")
-    scatterplot(l1, 'nz_abs_input', 'nz_abs_output', "Layer 1: average absolute value of input vs output weights", "plots/scatter_l1_nz_abs.jpg")
-    scatterplot(l2, 'nz_avg_input', 'nz_avg_output', "Layer 2: average value of input vs output weights", "plots/scatter_l2_nz_avg.jpg")
-    scatterplot(l1, 'nz_avg_input', 'nz_avg_output', "Layer 1: average value of input vs output weights", "plots/scatter_l1_nz_avg.jpg")
-    scatterplot(l2, 'nz_abs_input', 'nz_abs_output', "Layer 2: average absolute value of input vs output weights", "plots/scatter_l2_nz_abs.jpg")
-    scatterplot(l1, 'nz_pos_input', 'nz_pos_output', "Layer 1: fraction of nonzero weights > 0 for input vs output", "plots/scatter_l1_pos.jpg")
-    scatterplot(l2, 'nz_pos_input', 'nz_pos_output', "Layer 2: fraction of nonzero weights > 0 for input vs output", "plots/scatter_l2_pos.jpg")
-
-
-
+    return hidden_df
 
 
 def analyze_bert_self_attn(model, layer_num):
@@ -87,8 +82,7 @@ def analyze_bert_self_attn(model, layer_num):
 
     return dead_node_df
 
-    
-    
+
 def compute_basic_weight_stats(param_array):
     """
     Function for computing basic weight statistics of a single parameter array
