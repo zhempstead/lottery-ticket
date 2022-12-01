@@ -6,49 +6,56 @@ import torch
 
 def analyze_bert_ffn(model, layer_num):
     layer = model.encoder.layer[layer_num]
-    intermediate = layer.intermediate.dense.weight.data.numpy() # hidden
-    output = layer.output.dense.weight.data.numpy()
+    attn_out = layer.attention.output.dense.weight.data.numpy()
+    ffn_inter = layer.intermediate.dense.weight.data.numpy() # hidden
+    ffn_out = layer.output.dense.weight.data.numpy()
     
-    hidden_df = compute_ffn_weight_stats(intermediate, output)
+    hidden_df1, hidden_df2 = compute_ffn_weight_stats(attn_out, ffn_inter, ffn_out)
 
-    nz_cnt_corr = np.corrcoef(hidden_df['nz_cnt_input'],
-                              hidden_df['nz_cnt_output'])[0, 1]
-    nz_pos_corr = np.corrcoef(hidden_df['nz_pos_input'],
-                              hidden_df['nz_pos_output'])[0, 1]
-    nz_avg_corr = np.corrcoef(hidden_df['nz_avg_input'],
-                              hidden_df['nz_avg_output'])[0, 1]
-    nz_abs_corr = np.corrcoef(hidden_df['nz_abs_input'],
-                              hidden_df['nz_abs_output'])[0, 1]
-    c_str = f"""    nz_cnt_corr: {nz_cnt_corr:.3f} 
-    nz_pos_corr: {nz_pos_corr:.3f}
-    nz_avg_corr: {nz_avg_corr:.3f}
-    nz_abs_corr: {nz_abs_corr:.3f}
-    """
-    print(c_str)
+    print("Hidden layer 1:")
+    print_input_output_corr(hidden_df1)
+    print("Hidden layer 2:")
+    print_input_output_corr(hidden_df2)
+
+    return hidden_df1, hidden_df2
 
 
-def compute_ffn_weight_stats(inter_params, output_params):
+def compute_ffn_weight_stats(attn_params, inter_params, output_params):
     
-    hidden_nz_input = (inter_params != 0).sum(axis=1)
-    hidden_nz_output = (output_params != 0).sum(axis=0)
+    hidden1_nz_input = (attn_params != 0).sum(axis=1)
+    hidden1_nz_output = (inter_params != 0).sum(axis=0)
+    hidden2_nz_input = (inter_params != 0).sum(axis=1)
+    hidden2_nz_output = (output_params != 0).sum(axis=0)
 
-    hidden_positive_input = (inter_params > 0).sum(axis=1) / hidden_nz_input
-    hidden_positive_output = (output_params > 0).sum(axis=0) / hidden_nz_output
+    hidden1_positive_input = (attn_params > 0).sum(axis=1) / hidden1_nz_input
+    hidden1_positive_output = (inter_params > 0).sum(axis=0) / hidden1_nz_output
+    hidden2_positive_input = (inter_params > 0).sum(axis=1) / hidden2_nz_input
+    hidden2_positive_output = (output_params > 0).sum(axis=0) / hidden2_nz_output
 
-    hidden_nz_avg_input = (inter_params.sum(axis=1)) / hidden_nz_input
-    hidden_nz_avg_output = (output_params.sum(axis=0)) / hidden_nz_output
+    hidden1_nz_avg_input = attn_params.sum(axis=1) / hidden1_nz_input
+    hidden1_nz_avg_output = inter_params.sum(axis=0) / hidden1_nz_output
+    hidden2_nz_avg_input = inter_params.sum(axis=1) / hidden2_nz_input
+    hidden2_nz_avg_output = output_params.sum(axis=0) / hidden2_nz_output
 
-    hidden_nz_abs_input = (np.abs(inter_params).sum(axis=1)) / hidden_nz_input
-    hidden_nz_abs_output = (np.abs(output_params).sum(axis=0)) / hidden_nz_output
+    hidden1_nz_abs_input = np.abs(attn_params).sum(axis=1) / hidden1_nz_input
+    hidden1_nz_abs_output = np.abs(inter_params).sum(axis=0) / hidden1_nz_output
+    hidden2_nz_abs_input = (np.abs(inter_params).sum(axis=1)) / hidden2_nz_input
+    hidden2_nz_abs_output = (np.abs(output_params).sum(axis=0)) / hidden2_nz_output
 
-    hidden_df = pd.DataFrame({
-        "nz_cnt_input": hidden_nz_input, "nz_cnt_output": hidden_nz_output,
-        "nz_pos_input": hidden_positive_input, "nz_pos_output": hidden_positive_output,
-        "nz_avg_input": hidden_nz_avg_input, "nz_avg_output": hidden_nz_avg_output,
-        "nz_abs_input": hidden_nz_abs_input, "nz_abs_output": hidden_nz_abs_output,
+    hidden1_df = pd.DataFrame({
+        'nz_cnt_input': hidden1_nz_input, "nz_cnt_output": hidden1_nz_output,
+        'nz_pos_input': hidden1_positive_input, "nz_pos_output": hidden1_positive_output,
+        'nz_avg_input': hidden1_nz_avg_input, "nz_avg_output": hidden1_nz_avg_output,
+        'nz_abs_input': hidden1_nz_abs_input, "nz_abs_output": hidden1_nz_abs_output,
+        })
+    hidden2_df = pd.DataFrame({
+        "nz_cnt_input": hidden2_nz_input, "nz_cnt_output": hidden2_nz_output,
+        "nz_pos_input": hidden2_positive_input, "nz_pos_output": hidden2_positive_output,
+        "nz_avg_input": hidden2_nz_avg_input, "nz_avg_output": hidden2_nz_avg_output,
+        "nz_abs_input": hidden2_nz_abs_input, "nz_abs_output": hidden2_nz_abs_output,
         })
 
-    return hidden_df
+    return hidden1_df, hidden2_df
 
 
 def analyze_bert_self_attn(model, layer_num):
@@ -130,3 +137,22 @@ def compute_basic_weight_stats(param_array):
     })
 
     return outgoing_df, incoming_df
+
+
+def print_input_output_corr(df):
+    nz_cnt_corr = np.corrcoef(df['nz_cnt_input'],
+                              df['nz_cnt_output'])[0, 1]
+    nz_pos_corr = np.corrcoef(df['nz_pos_input'],
+                              df['nz_pos_output'])[0, 1]
+    nz_avg_corr = np.corrcoef(df['nz_avg_input'],
+                              df['nz_avg_output'])[0, 1]
+    nz_abs_corr = np.corrcoef(df['nz_abs_input'],
+                              df['nz_abs_output'])[0, 1]
+
+
+    c_str = f"""    nz_cnt_corr: {nz_cnt_corr:.3f} 
+    nz_pos_corr: {nz_pos_corr:.3f}
+    nz_avg_corr: {nz_avg_corr:.3f}
+    nz_abs_corr: {nz_abs_corr:.3f}
+    """
+    print(c_str)
