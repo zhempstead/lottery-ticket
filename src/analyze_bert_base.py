@@ -121,6 +121,19 @@ def analyze_bert_self_attn(model, layer_num):
     v_out_df, v_in_df = compute_basic_weight_stats(value_weights)
     ffn_out_df, ffn_in_df = compute_basic_weight_stats(attn_output)
 
+    raw_q_k_corr = np.corrcoef(query_weights.flatten(), key_weights.flatten())[0, 1]
+    raw_q_v_corr = np.corrcoef(query_weights.flatten(), value_weights.flatten())[0, 1]
+    raw_k_v_corr = np.corrcoef(key_weights.flatten(), value_weights.flatten())[0, 1]
+
+    raw_corr = pd.DataFrame({
+        "raw_q_k_corr": [raw_q_k_corr], "raw_q_v_corr": [raw_q_v_corr],
+        "raw_k_v_corr": [raw_k_v_corr]
+        })
+
+    summary_corr_in, summary_corr_out = compute_self_attn_corr(q_out_df, q_in_df,
+                                                  k_out_df, k_in_df,
+                                                  v_out_df, v_in_df)
+
     q_dead_out_nodes = sum(q_out_df['nonzero'] == 0)
     q_dead_in_nodes = sum(q_in_df['nonzero'] == 0)
     k_dead_out_nodes = sum(k_out_df['nonzero'] == 0)
@@ -137,7 +150,7 @@ def analyze_bert_self_attn(model, layer_num):
         "ffn_weights": [ffn_dead_out_nodes, ffn_dead_in_nodes]
     }, index=["output", "input"])
 
-    return dead_node_df
+    return dead_node_df, raw_corr, summary_corr_in, summary_corr_out
 
 
 def compute_basic_weight_stats(param_array):
@@ -215,6 +228,28 @@ def compute_input_output_corr(df):
     corr_lst = [nz_cnt_corr, nz_pos_corr, nz_avg_corr, nz_abs_corr]
 
     return corr_lst
+
+
+def compute_self_attn_corr(in_q_w, out_q_w, in_k_w, out_k_w,
+                           in_v_w, out_v_w):
+
+    in_corr_dict = {}
+    out_corr_dict = {}
+    measures = ['nonzero', 'positive', 'nz_avg', 'nz_abs_avg']
+    for measure in measures:
+        q_k_label = f"q_k_{measure}"
+        q_v_label = f"q_v_{measure}"
+        k_v_label = f"k_v_{measure}"
+
+        in_corr_dict[q_k_label] = np.corrcoef(in_q_w[measure], in_k_w[measure])[0, 1]
+        in_corr_dict[q_v_label] = np.corrcoef(in_q_w[measure], in_v_w[measure])[0, 1]
+        in_corr_dict[k_v_label] = np.corrcoef(in_k_w[measure], in_v_w[measure])[0, 1]
+
+        out_corr_dict[q_k_label] = np.corrcoef(out_q_w[measure], out_k_w[measure])[0, 1]
+        out_corr_dict[q_v_label] = np.corrcoef(out_q_w[measure], out_v_w[measure])[0, 1]
+        out_corr_dict[k_v_label] = np.corrcoef(out_k_w[measure], out_v_w[measure])[0, 1]
+
+    return in_corr_dict, out_corr_dict
 
 
 def scatterplot(df, xcol, ycol, title, outfile=False):
