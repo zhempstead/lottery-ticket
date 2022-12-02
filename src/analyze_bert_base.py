@@ -17,9 +17,9 @@ def analyze_bert_ffn(model, layer_num, PRUNE_AMT, PLOT_OPTION=False):
     hidden1_df, hidden2_df = compute_ffn_weight_stats(attn_out, ffn_inter, ffn_out)
 
     print("Hidden layer 1:")
-    print_input_output_corr(hidden1_df)
+    hidden1_corr = compute_input_output_corr(hidden1_df)
     print("Hidden layer 2:")
-    print_input_output_corr(hidden2_df)
+    hidden2_corr =  compute_input_output_corr(hidden2_df)
 
     if PLOT_OPTION == True:
         scatterplot(hidden1_df, 'nz_cnt_input', 'nz_cnt_output', f"Layer {layer_num}: Hidden 1: nonzero input vs output weights",
@@ -39,7 +39,7 @@ def analyze_bert_ffn(model, layer_num, PRUNE_AMT, PLOT_OPTION=False):
         scatterplot(hidden2_df, 'nz_pos_input', 'nz_pos_output',
                     f"Layer {layer_num}: Hidden 2: fraction of nonzero weights > 0 for input vs output", f"plots/BERT_{PRUNE_AMT}_{layer_num}_ffn_scatter_hidden2_pos.jpg")
 
-    return hidden1_df, hidden2_df
+    return hidden1_corr, hidden2_corr
 
 
 def compute_ffn_weight_stats(attn_params, inter_params, output_params):
@@ -161,7 +161,7 @@ def compute_basic_weight_stats(param_array):
     return outgoing_df, incoming_df
 
 
-def print_input_output_corr(df):
+def compute_input_output_corr(df):
     nz_cnt_corr = np.corrcoef(df['nz_cnt_input'],
                               df['nz_cnt_output'])[0, 1]
     nz_pos_corr = np.corrcoef(df['nz_pos_input'],
@@ -178,6 +178,10 @@ def print_input_output_corr(df):
     nz_abs_corr: {nz_abs_corr:.3f}
     """
     print(c_str)
+
+    corr_lst = [nz_cnt_corr, nz_pos_corr, nz_avg_corr, nz_abs_corr]
+
+    return corr_lst
 
 
 def scatterplot(df, xcol, ycol, title, outfile=False):
