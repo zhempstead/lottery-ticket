@@ -6,9 +6,18 @@ import torch
 
 
 
-
-
 def analyze_bert_ffn(model, layer_num, PRUNE_AMT, PLOT_OPTION=False):
+    """
+    Function for analyzing the feed forward portion of a single BERT layer
+    Inputs
+        model: BERT model
+        layer_num: layer number to analyze
+        PRUNE_AMT: prune ratio
+        PLOT_OPTION: boolean for plotting
+    Outputs
+        hidden1_corr_lst: list of correlations for hidden layer 1
+        hidden2_corr_lst: list of correlations for hidden layer 2
+    """
     layer = model.encoder.layer[layer_num]
     attn_out = layer.attention.output.dense.weight.data.numpy()
     ffn_inter = layer.intermediate.dense.weight.data.numpy()
@@ -22,27 +31,46 @@ def analyze_bert_ffn(model, layer_num, PRUNE_AMT, PLOT_OPTION=False):
     hidden2_corr =  compute_input_output_corr(hidden2_df)
 
     if PLOT_OPTION == True:
-        scatterplot(hidden1_df, 'nz_cnt_input', 'nz_cnt_output', f"Layer {layer_num}: Hidden 1: nonzero input vs output weights",
+        scatterplot(hidden1_df, 'nz_cnt_input', 'nz_cnt_output',
+                    f"Layer {layer_num}: FFN Hidden : nonzero input vs output weights",
                     f"plots/BERT_{PRUNE_AMT}_{layer_num}_scatter_hidden1_df_nnz.jpg")
         scatterplot(hidden2_df, 'nz_cnt_input', 'nz_cnt_output',
-                    f"Layer {layer_num}: Hidden 2: nonzero input vs output weights", f"plots/BERT_{PRUNE_AMT}_{layer_num}_ffn_scatter_hidden2_df_nnz.jpg")
+                    f"Layer {layer_num}: FFN Hidden 2: nonzero input vs output weights",
+                    f"plots/BERT_{PRUNE_AMT}_{layer_num}_ffn_scatter_hidden2_df_nnz.jpg")
         scatterplot(hidden2_df, 'nz_avg_input', 'nz_avg_output',
-                    f"Layer {layer_num}: Hidden 2: average value of input vs output weights", f"plots/BERT_{PRUNE_AMT}_{layer_num}_ffn_scatter_hidden2_df_nz_avg.jpg")
+                    f"Layer {layer_num}: FFN Hidden 2: average value of input vs output weights",
+                    f"plots/BERT_{PRUNE_AMT}_{layer_num}_ffn_scatter_hidden2_df_nz_avg.jpg")
         scatterplot(hidden1_df, 'nz_avg_input', 'nz_avg_output',
-                    f"Layer {layer_num}: Hidden 1: average value of input vs output weights", f"plots/BERT_{PRUNE_AMT}_{layer_num}_ffn_scatter_hidden1_df_nz_avg.jpg")
+                    f"Layer {layer_num}: FFN Hidden `: average value of input vs output weights",
+                    f"plots/BERT_{PRUNE_AMT}_{layer_num}_ffn_scatter_hidden1_df_nz_avg.jpg")
         scatterplot(hidden1_df, 'nz_abs_input', 'nz_abs_output',
-                    f"Layer {layer_num}: Hidden 1: average absolute value of input vs output weights", f"plots/BERT_{PRUNE_AMT}_{layer_num}_ffn_scatter_hidden1_df_nz_abs.jpg")
+                    f"Layer {layer_num}: FFN Hidden `: average absolute value of input vs output weights",
+                    f"plots/BERT_{PRUNE_AMT}_{layer_num}_ffn_scatter_hidden1_df_nz_abs.jpg")
         scatterplot(hidden2_df, 'nz_abs_input', 'nz_abs_output',
-                    f"Layer {layer_num}: Hidden 2: average absolute value of input vs output weights", f"plots/BERT_{PRUNE_AMT}_{layer_num}_ffn_scatter_hidden2_df_nz_abs.jpg")
+                    f"Layer {layer_num}: FFN FFN Hidden 2: average absolute value of input vs output weights",
+                    f"plots/BERT_{PRUNE_AMT}_{layer_num}_ffn_scatter_hidden2_df_nz_abs.jpg")
         scatterplot(hidden1_df, 'nz_pos_input', 'nz_pos_output',
-                    f"Layer {layer_num}: Hidden 1: fraction of nonzero weights > 0 for input vs output", f"plots/BERT_{PRUNE_AMT}_{layer_num}_ffn_scatter_hidden1_pos.jpg")
+                    f"Layer {layer_num}: FFN Hidden : fraction of nonzero weights > 0 for input vs output",
+                    f"plots/BERT_{PRUNE_AMT}_{layer_num}_ffn_scatter_hidden1_pos.jpg")
         scatterplot(hidden2_df, 'nz_pos_input', 'nz_pos_output',
-                    f"Layer {layer_num}: Hidden 2: fraction of nonzero weights > 0 for input vs output", f"plots/BERT_{PRUNE_AMT}_{layer_num}_ffn_scatter_hidden2_pos.jpg")
+                    f"Layer {layer_num}: FFN Hidden 2: fraction of nonzero weights > 0 for input vs output",
+                    f"plots/BERT_{PRUNE_AMT}_{layer_num}_ffn_scatter_hidden2_pos.jpg")
 
     return hidden1_corr, hidden2_corr
 
 
 def compute_ffn_weight_stats(attn_params, inter_params, output_params):
+    """
+    Function for computing statistics of input and output weights
+    of the feed forward portion of a single BERT layer
+    Inputs
+        attn_params: numpy array of attention output weights
+        inter_params: numpy array of intermediate weights
+        output_params: numpy array of output weights
+    Outputs
+        hidden1_df: pandas dataframe of statistics for hidden layer 1
+        hidden2_df: pandas dataframe of statistics for hidden layer 2
+    """
     
     hidden1_nz_input = (attn_params != 0).sum(axis=1)
     hidden1_nz_output = (inter_params != 0).sum(axis=0)
@@ -162,6 +190,11 @@ def compute_basic_weight_stats(param_array):
 
 
 def compute_input_output_corr(df):
+    """
+    Function for computing correlation between input and output weights
+    of a single parameter array
+    input df is the output of compute_ffn_weight_stats
+    """
     nz_cnt_corr = np.corrcoef(df['nz_cnt_input'],
                               df['nz_cnt_output'])[0, 1]
     nz_pos_corr = np.corrcoef(df['nz_pos_input'],
@@ -185,11 +218,19 @@ def compute_input_output_corr(df):
 
 
 def scatterplot(df, xcol, ycol, title, outfile=False):
-    #print(df[[xcol, ycol]].corr())
+    """
+    create scatterplot
+    Inputs:
+      df: dataframe with data
+      xcol: column name for x-axis
+      ycol: column name for y-axis
+      title: title for plot
+      outfile: if True, save plot to file
+    """
     df_counts = df[[xcol, ycol]].groupby([xcol, ycol]).size().reset_index().rename(columns={0: 'count'})
     if outfile:
         df_counts.plot.scatter(xcol, ycol, s=df_counts['count'], title=title).get_figure().savefig(outfile)
-        plt.clf()
+        #plt.clf()
     else:
         df_counts.plot.scatter(xcol, ycol, s=df_counts['count'], title=title).get_figure()
 
