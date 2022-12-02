@@ -4,9 +4,10 @@ import numpy as np
 import torch
 
 
+NUM_LAYERS = 12
+NUM_HEADS = 12
 
-
-def analyze_bert_ffn(model, layer_num, PRUNE_AMT, PLOT_OPTION=False):
+def analyze_bert_ffn_layer(model, layer_num, PRUNE_AMT, PLOT_OPTION=False):
     """
     Function for analyzing the feed forward portion of a single BERT layer
     Inputs
@@ -108,14 +109,27 @@ def compute_ffn_weight_stats(attn_params, inter_params, output_params):
     return hidden1_df, hidden2_df
 
 
-def analyze_bert_self_attn(model, layer_num):
+def analyze_bert_self_attn_layer(model, layer_num):
     layer = model.encoder.layer[layer_num]
     query_weights = layer.attention.self.query.weight.data.numpy()
     key_weights = layer.attention.self.key.weight.data.numpy()
     value_weights = layer.attention.self.value.weight.data.numpy()
     attn_output = layer. attention.output.dense.weight.data.numpy()
+
+    # out_dim = query_weights.shape[0]
+    # in_in = query_weights.shape[1]
+    # head_dim = in_dim // NUM_HEADS
+    # # head-level analysis
+    # for i in range(NUM_HEADS):
+    #     query_head = query_weights[i*64:(i+1)*64]
+    #     key_head = key_weights[i*64:(i+1)*64]
+    #     value_head = value_weights[i*64:(i+1)*64]
+    #     attn_output_head = attn_output[i*64:(i+1)*64]
+    #     print(f"Head {i}:")
+    #     analyze_self_attn_head(query_head, key_head, value_head, attn_output_head)
+
     
-    
+    # layer-level analysis
     q_out_df, q_in_df = compute_basic_weight_stats(query_weights)
     k_out_df, k_in_df = compute_basic_weight_stats(key_weights)
     v_out_df, v_in_df = compute_basic_weight_stats(value_weights)
@@ -126,6 +140,7 @@ def analyze_bert_self_attn(model, layer_num):
     raw_k_v_corr = np.corrcoef(key_weights.flatten(), value_weights.flatten())[0, 1]
 
     raw_corr = pd.DataFrame({
+        "layer_number": [layer_num],
         "raw_q_k_corr": [raw_q_k_corr], "raw_q_v_corr": [raw_q_v_corr],
         "raw_k_v_corr": [raw_k_v_corr]
         })
@@ -133,6 +148,8 @@ def analyze_bert_self_attn(model, layer_num):
     summary_corr_in, summary_corr_out = compute_self_attn_corr(q_out_df, q_in_df,
                                                   k_out_df, k_in_df,
                                                   v_out_df, v_in_df)
+    summary_corr_in["layer_number"] = layer_num
+    summary_corr_out["layer_number"] = layer_num
 
     q_dead_out_nodes = sum(q_out_df['nonzero'] == 0)
     q_dead_in_nodes = sum(q_in_df['nonzero'] == 0)
@@ -273,3 +290,11 @@ def scatterplot(df, xcol, ycol, title, outfile=False):
 def array_heatmap(arr):
     # Function that plots a heatmap of a numpy array
     plt.imshow(arr, cmap='hot', interpolation='nearest')
+
+
+# create empty pandas dataframe with list of column names and single data types
+def create_empty_df(col_names, col_type):
+    df = pd.DataFrame(columns=col_names)
+    for col_name, col_type in zip(col_names, col_types):
+        df[col_name] = df[col_name].astype(col_type)
+    return df
