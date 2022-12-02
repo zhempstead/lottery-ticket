@@ -116,28 +116,71 @@ def analyze_bert_self_attn_layer(model, layer_num):
     value_weights = layer.attention.self.value.weight.data.numpy()
     attn_output = layer. attention.output.dense.weight.data.numpy()
 
-    # out_dim = query_weights.shape[0]
-    # in_in = query_weights.shape[1]
-    # head_dim = in_dim // NUM_HEADS
-    # # head-level analysis
-    # for i in range(NUM_HEADS):
-    #     query_head = query_weights[i*64:(i+1)*64]
-    #     key_head = key_weights[i*64:(i+1)*64]
-    #     value_head = value_weights[i*64:(i+1)*64]
-    #     attn_output_head = attn_output[i*64:(i+1)*64]
-    #     print(f"Head {i}:")
-    #     analyze_self_attn_head(query_head, key_head, value_head, attn_output_head)
+    out_dim = query_weights.shape[0]
+    in_dim = query_weights.shape[1]
+    head_dim = in_dim // NUM_HEADS
 
+    # head-level analysis
+    for i in range(NUM_HEADS):
+        query_head = query_weights[i*head_dim:(i+1)*head_dim, :]
+        key_head = key_weights[i*head_dim:(i+1)*head_dim, :]
+        value_head = value_weights[i*head_dim:(i+1)*head_dim, :]
+
+        head_raw_corr, head_summary_corr_in, \
+            head_summary_corr_out = analyze_key_query_value_weights(query_head, key_head, value_head, layer_num)
     
     # layer-level analysis
-    q_out_df, q_in_df = compute_basic_weight_stats(query_weights)
-    k_out_df, k_in_df = compute_basic_weight_stats(key_weights)
-    v_out_df, v_in_df = compute_basic_weight_stats(value_weights)
-    ffn_out_df, ffn_in_df = compute_basic_weight_stats(attn_output)
+    layer_raw_corr, layer_summary_corr_in, \
+        layer_summary_corr_out = analyze_key_query_value_weights(query_weights, key_weights, value_weights, layer_num)
+    
+    # q_out_df, q_in_df = compute_basic_weight_stats(query_weights)
+    # k_out_df, k_in_df = compute_basic_weight_stats(key_weights)
+    # v_out_df, v_in_df = compute_basic_weight_stats(value_weights)
+    # ffn_out_df, ffn_in_df = compute_basic_weight_stats(attn_output)
 
-    raw_q_k_corr = np.corrcoef(query_weights.flatten(), key_weights.flatten())[0, 1]
-    raw_q_v_corr = np.corrcoef(query_weights.flatten(), value_weights.flatten())[0, 1]
-    raw_k_v_corr = np.corrcoef(key_weights.flatten(), value_weights.flatten())[0, 1]
+    # raw_q_k_corr = np.corrcoef(query_weights.flatten(), key_weights.flatten())[0, 1]
+    # raw_q_v_corr = np.corrcoef(query_weights.flatten(), value_weights.flatten())[0, 1]
+    # raw_k_v_corr = np.corrcoef(key_weights.flatten(), value_weights.flatten())[0, 1]
+
+    # raw_corr = pd.DataFrame({
+    #     "layer_number": [layer_num],
+    #     "raw_q_k_corr": [raw_q_k_corr], "raw_q_v_corr": [raw_q_v_corr],
+    #     "raw_k_v_corr": [raw_k_v_corr]
+    #     })
+
+    # summary_corr_in, summary_corr_out = compute_self_attn_corr(q_out_df, q_in_df,
+    #                                               k_out_df, k_in_df,
+    #                                               v_out_df, v_in_df)
+    # summary_corr_in["layer_number"] = layer_num
+    # summary_corr_out["layer_number"] = layer_num
+
+    # q_dead_out_nodes = sum(q_out_df['nonzero'] == 0)
+    # q_dead_in_nodes = sum(q_in_df['nonzero'] == 0)
+    # k_dead_out_nodes = sum(k_out_df['nonzero'] == 0)
+    # k_dead_in_nodes = sum(k_in_df['nonzero'] == 0)
+    # v_dead_out_nodes = sum(v_out_df['nonzero'] == 0)
+    # v_dead_in_nodes = sum(v_in_df['nonzero'] == 0)
+    # ffn_dead_out_nodes = sum(ffn_out_df['nonzero'] == 0)
+    # ffn_dead_in_nodes = sum(ffn_in_df['nonzero'] == 0)
+
+    # dead_node_df = pd.DataFrame({
+    #     "q_weights": [q_dead_out_nodes, q_dead_in_nodes],
+    #     "k_weights": [k_dead_out_nodes, k_dead_in_nodes],
+    #     "v_weights": [v_dead_out_nodes, v_dead_in_nodes],
+    #     "ffn_weights": [ffn_dead_out_nodes, ffn_dead_in_nodes]
+    # }, index=["output", "input"])
+
+    return layer_raw_corr, layer_summary_corr_in, layer_summary_corr_out
+
+
+def analyze_key_query_value_weights(q_weights, k_weights, v_weights, layer_num):
+    q_out_df, q_in_df = compute_basic_weight_stats(q_weights)
+    k_out_df, k_in_df = compute_basic_weight_stats(k_weights)
+    v_out_df, v_in_df = compute_basic_weight_stats(v_weights)
+
+    raw_q_k_corr = np.corrcoef(q_weights.flatten(), k_weights.flatten())[0, 1]
+    raw_q_v_corr = np.corrcoef(q_weights.flatten(), v_weights.flatten())[0, 1]
+    raw_k_v_corr = np.corrcoef(k_weights.flatten(), v_weights.flatten())[0, 1]
 
     raw_corr = pd.DataFrame({
         "layer_number": [layer_num],
@@ -151,23 +194,7 @@ def analyze_bert_self_attn_layer(model, layer_num):
     summary_corr_in["layer_number"] = layer_num
     summary_corr_out["layer_number"] = layer_num
 
-    q_dead_out_nodes = sum(q_out_df['nonzero'] == 0)
-    q_dead_in_nodes = sum(q_in_df['nonzero'] == 0)
-    k_dead_out_nodes = sum(k_out_df['nonzero'] == 0)
-    k_dead_in_nodes = sum(k_in_df['nonzero'] == 0)
-    v_dead_out_nodes = sum(v_out_df['nonzero'] == 0)
-    v_dead_in_nodes = sum(v_in_df['nonzero'] == 0)
-    ffn_dead_out_nodes = sum(ffn_out_df['nonzero'] == 0)
-    ffn_dead_in_nodes = sum(ffn_in_df['nonzero'] == 0)
-
-    dead_node_df = pd.DataFrame({
-        "q_weights": [q_dead_out_nodes, q_dead_in_nodes],
-        "k_weights": [k_dead_out_nodes, k_dead_in_nodes],
-        "v_weights": [v_dead_out_nodes, v_dead_in_nodes],
-        "ffn_weights": [ffn_dead_out_nodes, ffn_dead_in_nodes]
-    }, index=["output", "input"])
-
-    return dead_node_df, raw_corr, summary_corr_in, summary_corr_out
+    return raw_corr, summary_corr_in, summary_corr_out
 
 
 def compute_basic_weight_stats(param_array):
