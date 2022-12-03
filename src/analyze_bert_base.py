@@ -120,6 +120,12 @@ def analyze_bert_self_attn_layer(model, layer_num):
     in_dim = query_weights.shape[1]
     head_dim = in_dim // NUM_HEADS
 
+    head_raw_corr_df = pd.DataFrame(columns= ['layer_number',
+                                              'raw_q_k_corr',
+                                              'raw_q_v_corr',
+                                              'raw_k_v_corr',
+                                              'head_number'])
+
     # head-level analysis
     for i in range(NUM_HEADS):
         query_head = query_weights[i*head_dim:(i+1)*head_dim, :]
@@ -127,32 +133,19 @@ def analyze_bert_self_attn_layer(model, layer_num):
         value_head = value_weights[i*head_dim:(i+1)*head_dim, :]
 
         head_raw_corr, head_summary_corr_in, \
-            head_summary_corr_out = analyze_key_query_value_weights(query_head, key_head, value_head, layer_num)
+            head_summary_corr_out = analyze_key_query_value_weights(query_head,
+                                                                    key_head,
+                                                                    value_head,
+                                                                    layer_num,
+                                                                    head_num=i)
+        head_raw_corr_df = pd.concat([head_raw_corr_df, head_raw_corr], ignore_index=True)
     
     # layer-level analysis
     layer_raw_corr, layer_summary_corr_in, \
-        layer_summary_corr_out = analyze_key_query_value_weights(query_weights, key_weights, value_weights, layer_num)
-    
-    # q_out_df, q_in_df = compute_basic_weight_stats(query_weights)
-    # k_out_df, k_in_df = compute_basic_weight_stats(key_weights)
-    # v_out_df, v_in_df = compute_basic_weight_stats(value_weights)
-    # ffn_out_df, ffn_in_df = compute_basic_weight_stats(attn_output)
-
-    # raw_q_k_corr = np.corrcoef(query_weights.flatten(), key_weights.flatten())[0, 1]
-    # raw_q_v_corr = np.corrcoef(query_weights.flatten(), value_weights.flatten())[0, 1]
-    # raw_k_v_corr = np.corrcoef(key_weights.flatten(), value_weights.flatten())[0, 1]
-
-    # raw_corr = pd.DataFrame({
-    #     "layer_number": [layer_num],
-    #     "raw_q_k_corr": [raw_q_k_corr], "raw_q_v_corr": [raw_q_v_corr],
-    #     "raw_k_v_corr": [raw_k_v_corr]
-    #     })
-
-    # summary_corr_in, summary_corr_out = compute_self_attn_corr(q_out_df, q_in_df,
-    #                                               k_out_df, k_in_df,
-    #                                               v_out_df, v_in_df)
-    # summary_corr_in["layer_number"] = layer_num
-    # summary_corr_out["layer_number"] = layer_num
+        layer_summary_corr_out = analyze_key_query_value_weights(query_weights,
+                                                                    key_weights,
+                                                                    value_weights,
+                                                                    layer_num)
 
     # q_dead_out_nodes = sum(q_out_df['nonzero'] == 0)
     # q_dead_in_nodes = sum(q_in_df['nonzero'] == 0)
@@ -170,10 +163,11 @@ def analyze_bert_self_attn_layer(model, layer_num):
     #     "ffn_weights": [ffn_dead_out_nodes, ffn_dead_in_nodes]
     # }, index=["output", "input"])
 
-    return layer_raw_corr, layer_summary_corr_in, layer_summary_corr_out
+    return layer_raw_corr, layer_summary_corr_in, layer_summary_corr_out, head_raw_corr_df
 
 
-def analyze_key_query_value_weights(q_weights, k_weights, v_weights, layer_num):
+def analyze_key_query_value_weights(q_weights, k_weights, v_weights,
+                                    layer_num, head_num=None):
     q_out_df, q_in_df = compute_basic_weight_stats(q_weights)
     k_out_df, k_in_df = compute_basic_weight_stats(k_weights)
     v_out_df, v_in_df = compute_basic_weight_stats(v_weights)
@@ -183,10 +177,13 @@ def analyze_key_query_value_weights(q_weights, k_weights, v_weights, layer_num):
     raw_k_v_corr = np.corrcoef(k_weights.flatten(), v_weights.flatten())[0, 1]
 
     raw_corr = pd.DataFrame({
-        "layer_number": [layer_num],
+        "layer_number": [layer_num + 1], # layer number starts from 1
         "raw_q_k_corr": [raw_q_k_corr], "raw_q_v_corr": [raw_q_v_corr],
         "raw_k_v_corr": [raw_k_v_corr]
         })
+
+    if head_num:
+        raw_corr["head_number"] = head_num + 1 # 1-indexed
 
     summary_corr_in, summary_corr_out = compute_self_attn_corr(q_out_df, q_in_df,
                                                   k_out_df, k_in_df,
@@ -319,7 +316,7 @@ def array_heatmap(arr):
     plt.imshow(arr, cmap='hot', interpolation='nearest')
 
 
-# create empty pandas dataframe with list of column names and single data types
+# create empty pandas dataframe with list of column names and data types
 def create_empty_df(col_names, col_type):
     df = pd.DataFrame(columns=col_names)
     for col_name, col_type in zip(col_names, col_types):
