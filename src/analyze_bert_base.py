@@ -137,7 +137,7 @@ def analyze_bert_self_attn_layer(model, layer_num):
                                                                     key_head,
                                                                     value_head,
                                                                     layer_num,
-                                                                    head_num=i)
+                                                                    head_num=i+1) # 1-indexed for plotting
         head_raw_corr_df = pd.concat([head_raw_corr_df, head_raw_corr], ignore_index=True)
     
     # layer-level analysis
@@ -183,7 +183,7 @@ def analyze_key_query_value_weights(q_weights, k_weights, v_weights,
         })
 
     if head_num:
-        raw_corr["head_number"] = head_num + 1 # 1-indexed
+        raw_corr["head_number"] = head_num
 
     summary_corr_in, summary_corr_out = compute_self_attn_corr(q_out_df, q_in_df,
                                                   k_out_df, k_in_df,
