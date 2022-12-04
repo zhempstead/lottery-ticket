@@ -44,6 +44,8 @@ def analyze_bert_layerwise(model, PRUNE_AMT, PLOT_OPTION=False):
                                 'k_v_nz_abs_avg']
     summ_attn_corr_in_df = pd.DataFrame(columns=summ_attn_corr_colnames)
     summ_attn_corr_out_df = pd.DataFrame(columns=summ_attn_corr_colnames)
+    head_summ_attn_corr_in_df = pd.DataFrame(columns=summ_attn_corr_colnames + ['head_number']) # for headwise analysis
+    head_summ_attn_corr_out_df = pd.DataFrame(columns=summ_attn_corr_colnames + ['head_number'])
 
     for layer_num in range(12):
         print(f"Feed-Forward Node Input/Output Correlations for layer {layer_num}:")
@@ -53,21 +55,32 @@ def analyze_bert_layerwise(model, PRUNE_AMT, PLOT_OPTION=False):
         ffn_corr1_df.loc[len(ffn_corr1_df)] = rv_corr1
         ffn_corr2_df.loc[len(ffn_corr2_df)] = rv_corr2
         
-        raw, summ_in, summ_out, head_raw = analyze_bert_self_attn_layer(model,
-                                                                        layer_num)
-        raw_corr_df = pd.concat([raw_corr_df,raw], ignore_index=True)
-        
-        head_raw_corr_df = pd.concat([head_raw_corr_df, head_raw],
+        layer_analysis_dict = analyze_bert_self_attn_layer(model,layer_num)
+        raw_corr_df = pd.concat([raw_corr_df,layer_analysis_dict['raw_corr']],
+                                ignore_index=True)
+        head_raw_corr_df = pd.concat([head_raw_corr_df,
+                                      layer_analysis_dict['head_raw_corr']],
                                      ignore_index=True)
-        
         summ_attn_corr_in_df = pd.concat([summ_attn_corr_in_df,
-                                          pd.DataFrame(summ_in, index=[layer_num])],
-                                        ignore_index=True) 
+                                          pd.DataFrame(layer_analysis_dict['summ_attn_corr_in'],
+                                                        index=[layer_num])],
+                                         ignore_index=True) 
         summ_attn_corr_out_df = pd.concat([summ_attn_corr_out_df,
-                                           pd.DataFrame(summ_out, index=[layer_num])],
-                                        ignore_index=True)
+                                           pd.DataFrame(layer_analysis_dict['summ_attn_corr_out'],
+                                                        index=[layer_num])],
+                                         ignore_index=True)
+        head_summ_attn_corr_in_df = pd.concat([head_summ_attn_corr_in_df,
+                                               pd.DataFrame(layer_analysis_dict['head_summ_attn_corr_in'],
+                                                            index=[layer_num])],
+                                                ignore_index=True)
+        head_summ_attn_corr_out_df = pd.concat([head_summ_attn_corr_out_df,
+                                                pd.DataFrame(layer_analysis_dict['head_summ_attn_corr_out'],
+                                                             index=[layer_num])],
+                                               ignore_index=True)
 
-    return ffn_corr1_df, ffn_corr2_df, raw_corr_df, head_raw_corr_df, summ_attn_corr_in_df, summ_attn_corr_out_df
+    return ffn_corr1_df, ffn_corr2_df, raw_corr_df, head_raw_corr_df, \
+            summ_attn_corr_in_df, summ_attn_corr_out_df, \
+                head_summ_attn_corr_in_df, head_summ_attn_corr_out_df
 
 
 def analyze_bert_ffn_layer(model, layer_num, PRUNE_AMT, PLOT_OPTION=False):
@@ -177,7 +190,6 @@ def analyze_bert_self_attn_layer(model, layer_num):
     query_weights = layer.attention.self.query.weight.data.numpy()
     key_weights = layer.attention.self.key.weight.data.numpy()
     value_weights = layer.attention.self.value.weight.data.numpy()
-    attn_output = layer. attention.output.dense.weight.data.numpy()
 
     out_dim = query_weights.shape[0]
     in_dim = query_weights.shape[1]
@@ -188,6 +200,14 @@ def analyze_bert_self_attn_layer(model, layer_num):
                                               'raw_q_v_corr',
                                               'raw_k_v_corr',
                                               'head_number'])
+
+    head_summ_attn_corr_colnames = ['layer_number','head_number', 'q_k_nonzero',
+                                    'q_v_nonzero','k_v_nonzero','q_k_positive',
+                                    'q_v_positive','k_v_positive','q_k_nz_avg',
+                                    'q_v_nz_avg','k_v_nz_avg', 'q_k_nz_abs_avg',
+                                    'q_v_nz_abs_avg','k_v_nz_abs_avg']
+    head_summ_attn_corr_in_df = pd.DataFrame(columns=head_summ_attn_corr_colnames)
+    head_summ_attn_corr_out_df = pd.DataFrame(columns=head_summ_attn_corr_colnames)
 
     # head-level analysis
     for i in range(NUM_HEADS):
@@ -201,7 +221,14 @@ def analyze_bert_self_attn_layer(model, layer_num):
                                                                     value_head,
                                                                     layer_num,
                                                                     head_num=i+1) # 1-indexed for plotting
-        head_raw_corr_df = pd.concat([head_raw_corr_df, head_raw_corr], ignore_index=True)
+        head_raw_corr_df = pd.concat([head_raw_corr_df, head_raw_corr],
+                                     ignore_index=True)
+        head_summ_attn_corr_in_df = pd.concat([head_summ_attn_corr_in_df,
+                                          pd.DataFrame(head_summary_corr_in, index=[layer_num])],
+                                        ignore_index=True) 
+        head_summ_attn_corr_out_df = pd.concat([head_summ_attn_corr_out_df,
+                                           pd.DataFrame(head_summary_corr_out, index=[layer_num])],
+                                        ignore_index=True)
     
     # layer-level analysis
     layer_raw_corr, layer_summary_corr_in, \
@@ -226,7 +253,16 @@ def analyze_bert_self_attn_layer(model, layer_num):
     #     "ffn_weights": [ffn_dead_out_nodes, ffn_dead_in_nodes]
     # }, index=["output", "input"])
 
-    return layer_raw_corr, layer_summary_corr_in, layer_summary_corr_out, head_raw_corr_df
+    layer_dict = {
+        "layer_number": layer_num,"raw_corr": layer_raw_corr,
+        "summ_attn_corr_in": layer_summary_corr_in,
+        "summ_attn_corr_out": layer_summary_corr_out,
+        "head_raw_corr": head_raw_corr_df,
+        "head_summ_attn_corr_in": head_summ_attn_corr_in_df,
+        "head_summ_attn_corr_out": head_summ_attn_corr_out_df
+    }
+
+    return layer_dict
 
 
 def analyze_key_query_value_weights(q_weights, k_weights, v_weights,
@@ -245,14 +281,16 @@ def analyze_key_query_value_weights(q_weights, k_weights, v_weights,
         "raw_k_v_corr": [raw_k_v_corr]
         })
 
-    if head_num:
-        raw_corr["head_number"] = head_num
-
     summary_corr_in, summary_corr_out = compute_self_attn_corr(q_out_df, q_in_df,
                                                   k_out_df, k_in_df,
                                                   v_out_df, v_in_df)
-    summary_corr_in["layer_number"] = layer_num
-    summary_corr_out["layer_number"] = layer_num
+    summary_corr_in["layer_number"] = layer_num + 1
+    summary_corr_out["layer_number"] = layer_num + 1
+
+    if head_num: # if head_num is not None add head_num col to the dataframes
+        raw_corr["head_number"] = head_num
+        summary_corr_in["head_number"] = head_num
+        summary_corr_out["head_number"] = head_num
 
     return raw_corr, summary_corr_in, summary_corr_out
 
