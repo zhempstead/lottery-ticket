@@ -7,6 +7,69 @@ import torch
 NUM_LAYERS = 12
 NUM_HEADS = 12
 
+
+def analyze_bert_layerwise(model, PRUNE_AMT, PLOT_OPTION=False):
+    """
+    Function for analyzing the BERT model
+    Inputs
+        model: BERT model
+        PRUNE_AMT: prune ratio
+        PLOT_OPTION: boolean for plotting
+    Outputs
+        hidden1_corr_lst: list of correlations for hidden layer 1
+        hidden2_corr_lst: list of correlations for hidden layer 2
+    """
+    # Layer by layer analysis
+    ffn_corr1_df = df = pd.DataFrame({'nz_cnt_corr:': pd.Series(dtype='float'),
+                   'nz_pos_corr': pd.Series(dtype='float'),
+                   'nz_avg_corr': pd.Series(dtype='float'),
+                   'nz_abs_corr:': pd.Series(dtype='float')})
+
+    ffn_corr2_df = df = pd.DataFrame({'nz_cnt_corr:': pd.Series(dtype='float'),
+                   'nz_pos_corr': pd.Series(dtype='float'),
+                   'nz_avg_corr': pd.Series(dtype='float'),
+                   'nz_abs_corr:': pd.Series(dtype='float')})
+
+
+    raw_corr_df = pd.DataFrame(columns= ['layer_number','raw_q_k_corr',
+                                            'raw_q_v_corr', 'raw_k_v_corr'])
+    head_raw_corr_df = pd.DataFrame(columns= ['layer_number','raw_q_k_corr',
+                                                'raw_q_v_corr', 'raw_k_v_corr',
+                                                'head_number'])
+
+    summ_attn_corr_colnames = ['layer_number','q_k_nonzero', 'q_v_nonzero',
+                                'k_v_nonzero','q_k_positive', 'q_v_positive',
+                                'k_v_positive','q_k_nz_avg', 'q_v_nz_avg',
+                                'k_v_nz_avg', 'q_k_nz_abs_avg','q_v_nz_abs_avg',
+                                'k_v_nz_abs_avg']
+    summ_attn_corr_in_df = pd.DataFrame(columns=summ_attn_corr_colnames)
+    summ_attn_corr_out_df = pd.DataFrame(columns=summ_attn_corr_colnames)
+
+    for layer_num in range(12):
+        print(f"Feed-Forward Node Input/Output Correlations for layer {layer_num}:")
+        rv_corr1, rv_corr2 = analyze_bert_ffn_layer(model, layer_num,
+                                                    PRUNE_AMT=0,
+                                                    PLOT_OPTION=False)
+        ffn_corr1_df.loc[len(ffn_corr1_df)] = rv_corr1
+        ffn_corr2_df.loc[len(ffn_corr2_df)] = rv_corr2
+        
+        raw, summ_in, summ_out, head_raw = analyze_bert_self_attn_layer(model,
+                                                                        layer_num)
+        raw_corr_df = pd.concat([raw_corr_df,raw], ignore_index=True)
+        
+        head_raw_corr_df = pd.concat([head_raw_corr_df, head_raw],
+                                     ignore_index=True)
+        
+        summ_attn_corr_in_df = pd.concat([summ_attn_corr_in_df,
+                                          pd.DataFrame(summ_in, index=[layer_num])],
+                                        ignore_index=True) 
+        summ_attn_corr_out_df = pd.concat([summ_attn_corr_out_df,
+                                           pd.DataFrame(summ_out, index=[layer_num])],
+                                        ignore_index=True)
+
+    return ffn_corr1_df, ffn_corr2_df, raw_corr_df, head_raw_corr_df, summ_attn_corr_in_df, summ_attn_corr_out_df
+
+
 def analyze_bert_ffn_layer(model, layer_num, PRUNE_AMT, PLOT_OPTION=False):
     """
     Function for analyzing the feed forward portion of a single BERT layer
