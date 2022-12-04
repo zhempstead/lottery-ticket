@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
+import pdb
 import torch
 
 
@@ -70,12 +71,10 @@ def analyze_bert_layerwise(model, PRUNE_AMT, PLOT_OPTION=False):
                                                         index=[layer_num])],
                                          ignore_index=True)
         head_summ_attn_corr_in_df = pd.concat([head_summ_attn_corr_in_df,
-                                               pd.DataFrame(layer_analysis_dict['head_summ_attn_corr_in'],
-                                                            index=[layer_num])],
+                                               layer_analysis_dict['head_summ_attn_corr_in']],
                                                 ignore_index=True)
         head_summ_attn_corr_out_df = pd.concat([head_summ_attn_corr_out_df,
-                                                pd.DataFrame(layer_analysis_dict['head_summ_attn_corr_out'],
-                                                             index=[layer_num])],
+                                               layer_analysis_dict['head_summ_attn_corr_out']],
                                                ignore_index=True)
 
     return ffn_corr1_df, ffn_corr2_df, raw_corr_df, head_raw_corr_df, \
@@ -223,6 +222,8 @@ def analyze_bert_self_attn_layer(model, layer_num):
                                                                     head_num=i+1) # 1-indexed for plotting
         head_raw_corr_df = pd.concat([head_raw_corr_df, head_raw_corr],
                                      ignore_index=True)
+        # print("ADDING HEAD SUMMARY CORR IN:")
+        # print(head_summ_attn_corr_in_df)
         head_summ_attn_corr_in_df = pd.concat([head_summ_attn_corr_in_df,
                                           pd.DataFrame(head_summary_corr_in, index=[layer_num])],
                                         ignore_index=True) 
@@ -415,11 +416,3 @@ def scatterplot(df, xcol, ycol, title, outfile=False):
 def array_heatmap(arr):
     # Function that plots a heatmap of a numpy array
     plt.imshow(arr, cmap='hot', interpolation='nearest')
-
-
-# create empty pandas dataframe with list of column names and data types
-def create_empty_df(col_names, col_type):
-    df = pd.DataFrame(columns=col_names)
-    for col_name, col_type in zip(col_names, col_types):
-        df[col_name] = df[col_name].astype(col_type)
-    return df
