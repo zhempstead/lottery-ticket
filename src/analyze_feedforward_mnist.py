@@ -43,19 +43,19 @@ def analyze_feedforward_mnist():
         "nz_abs_input": l2_nz_abs_input, "nz_abs_output": l2_nz_abs_output,
     })
 
-    scatterplot(l1, 'nz_cnt_input', 'nz_cnt_output', "Layer 1: nonzero input vs output weights", "plots/scatter_l1_nnz.jpg")
-    scatterplot(l2, 'nz_cnt_input', 'nz_cnt_output', "Layer 2: nonzero input vs output weights", "plots/scatter_l2_nnz.jpg")
-    scatterplot(l1, 'nz_abs_input', 'nz_abs_output', "Layer 1: average absolute value of input vs output weights", "plots/scatter_l1_nz_abs.jpg")
-    scatterplot(l2, 'nz_avg_input', 'nz_avg_output', "Layer 2: average value of input vs output weights", "plots/scatter_l2_nz_avg.jpg")
-    scatterplot(l1, 'nz_avg_input', 'nz_avg_output', "Layer 1: average value of input vs output weights", "plots/scatter_l1_nz_avg.jpg")
-    scatterplot(l2, 'nz_abs_input', 'nz_abs_output', "Layer 2: average absolute value of input vs output weights", "plots/scatter_l2_nz_abs.jpg")
-    scatterplot(l1, 'nz_pos_input', 'nz_pos_output', "Layer 1: fraction of nonzero weights > 0 for input vs output", "plots/scatter_l1_pos.jpg")
-    scatterplot(l2, 'nz_pos_input', 'nz_pos_output', "Layer 2: fraction of nonzero weights > 0 for input vs output", "plots/scatter_l2_pos.jpg")
+    scatterplot(l1, 'nz_cnt_input', 'nz_cnt_output', "Layer 1: nonzero input vs output weights", "plots/scatter_l1_nnz.svg")
+    scatterplot(l2, 'nz_cnt_input', 'nz_cnt_output', "Layer 2: nonzero input vs output weights", "plots/scatter_l2_nnz.svg")
+    scatterplot(l1, 'nz_abs_input', 'nz_abs_output', "Layer 1: average absolute value of input vs output weights", "plots/scatter_l1_nz_abs.svg")
+    scatterplot(l2, 'nz_abs_input', 'nz_abs_output', "Layer 2: average absolute value of input vs output weights", "plots/scatter_l2_nz_abs.svg")
+    scatterplot(l1, 'nz_avg_input', 'nz_avg_output', "Layer 1: average value of input vs output weights", "plots/scatter_l1_nz_avg.svg")
+    scatterplot(l2, 'nz_avg_input', 'nz_avg_output', "Layer 2: average value of input vs output weights", "plots/scatter_l2_nz_avg.svg")
+    scatterplot(l1, 'nz_pos_input', 'nz_pos_output', "Layer 1: fraction of nonzero weights > 0 for input vs output", "plots/scatter_l1_pos.svg")
+    scatterplot(l2, 'nz_pos_input', 'nz_pos_output', "Layer 2: fraction of nonzero weights > 0 for input vs output", "plots/scatter_l2_pos.svg")
 
     for col in l1.columns:
-        l1[col].plot.hist(bins=20, title=f"L1 {col}").get_figure().savefig(f'plots/hist_l1_{col}.jpg')
+        l1[col].plot.hist(bins=20, title=f"L1 {col}").get_figure().savefig(f'plots/hist_l1_{col}.svg')
         plt.clf()
-        l2[col].plot.hist(bins=20, title=f"L2 {col}").get_figure().savefig(f'plots/hist_l2_{col}.jpg')
+        l2[col].plot.hist(bins=20, title=f"L2 {col}").get_figure().savefig(f'plots/hist_l2_{col}.svg')
         plt.clf()
 
     print("layer 1 correlation:")
@@ -64,7 +64,10 @@ def analyze_feedforward_mnist():
     print(l2.corr())
 
 def scatterplot(df, xcol, ycol, title, outfile):
-    print(df[[xcol, ycol]].corr())
+    import pdb; pdb.set_trace()
+    print(len(df[(df[xcol] == 0) & (df[ycol] == 0)]))
+    print(len(df))
+    print(df[(df[xcol] != 0) & (df[ycol] != 0)][[xcol, ycol]].corr())
     df_counts = df[[xcol, ycol]].groupby([xcol, ycol]).size().reset_index().rename(columns={0: 'count'})
     df_counts.plot.scatter(xcol, ycol, s=df_counts['count'], title=title).get_figure().savefig(outfile)
     plt.clf()
