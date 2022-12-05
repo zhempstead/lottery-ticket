@@ -18,6 +18,9 @@ class SimpleFeedforward(nn.Module):
         self.fc1 = nn.Linear(28 * 28, 300)  # 5*5 from image dimension
         self.fc2 = nn.Linear(300, 100)
         self.fc3 = nn.Linear(100, 10)
+        #torch.nn.init.kaiming_normal_(self.fc1.weight, nonlinearity='relu')
+        #torch.nn.init.kaiming_normal_(self.fc2.weight, nonlinearity='relu')
+        #torch.nn.init.kaiming_normal_(self.fc3.weight, nonlinearity='relu')
 
     def forward(self, x):
         x = torch.flatten(x, 1) # flatten all dimensions except the batch dimension
